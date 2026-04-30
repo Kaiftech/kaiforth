@@ -1,0 +1,17 @@
+[package]
+name = "kaiforth"
+version = "6.0.0"
+edition = "2021"
+description = "High-performance Forth VM in safe Rust — packed opcodes, recursive optimizer, zero panics"
+license = "MIT"
+readme = "README.md"
+
+[[bin]]
+name = "kaiforth"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
