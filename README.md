@@ -1,250 +1,76 @@
-# kaiforth
+# Kaiforth VM
 
-A high-performance Forth virtual machine written in safe Rust.  
-Packed-opcode core · recursive constant-folding optimizer · zero panics.
+Kaiforth is a high-performance, production-hardened Forth Virtual Machine written in Safe Rust. It features a zero-panic design, hardware-enforced memory safety, and a persistent, adaptive Just-In-Time (JIT) optimizer. 
 
----
-
-## Build & Run
-
-**Requirements:** Rust toolchain — install from [rustup.rs](https://rustup.rs)
-
-```bash
-# Clone
-git clone https://github.com/<your-username>/kaiforth.git
-cd kaiforth
-
-# Interactive REPL
-cargo run --release
-
-# Run a .fs file
-cargo run --release -- examples/fib.fs
-
-# Run benchmark
-cargo run --release -- benchmarks/bench.fs
-```
-
-The compiled binary is at `target/release/kaiforth.exe` (Windows) or `target/release/kaiforth` (Linux/macOS).  
-You can run it directly after building:
-
-```bash
-cargo build --release
-./target/release/kaiforth           # REPL
-./target/release/kaiforth file.fs   # script
-```
+The architecture strictly adheres to a **Zero-Trust Model**, ensuring that speculative optimizations never compromise the integrity of the execution state.
 
 ---
 
-## The Forth Language — Quick Reference
+## 🏗️ Architecture & Tiered Execution
 
-Forth is a **stack-based** language. You push values onto the stack, then call words (functions) that consume and produce values.
+Kaiforth utilizes a 3-tier execution strategy to balance cold-start latency with peak runtime performance:
 
-### How the stack works
+1. **Tier 1: Bytecode Interpreter (Cold Path)**
+   - Executes standard bytecode safely with full Rust-level bounds checks.
+   - Actively streams `TraceEvent` telemetry (opcodes, call depths, loops) into a runtime buffer.
 
-```forth
-3 4 +       \ push 3, push 4, add → stack: [7]
-7 .         \ print top of stack  → prints: 7
-```
+2. **Tier 2: Adaptive Optimizer (Warm Path)**
+   - **Segmentation Engine**: Analyzes execution traces to identify hot, repetitive mathematical subsets. It breaks sequences into atomic "Safe Basic Blocks," splitting paths whenever stack stability or memory aliasing becomes uncertain.
+   - **Contract Synthesis**: Each extracted block is assigned a rigid `SemanticContract` detailing its stack and memory impact.
 
-Reading stack notation: `( before -- after )`  
-Example: `+` has signature `( a b -- a+b )`
-
----
-
-### Arithmetic
-
-```forth
-2 3 +   .    \ 5
-10 4 -  .    \ 6
-3 4 *   .    \ 12
-10 2 /  .    \ 5
-7 3 mod .    \ 1
-5 negate .   \ -5
--3 abs  .    \ 3
-```
+3. **Tier 3: JIT Super-Instructions (Hot Path)**
+   - Hot sequences are compiled into raw x64 machine code.
+   - The VM uses the instruction pointer (`ip`) to perform an O(1) lookup.
+   - **Pre-Call Verification**: Before jumping into machine code, the VM performs a constant-time check to guarantee the current stack depth satisfies the segment's `SemanticContract`.
 
 ---
 
-### Stack Operations
+## 🛡️ Hardware-Enforced Zero-Trust Safety
 
-| Word   | Effect              |
-|--------|---------------------|
-| `dup`  | `( a -- a a )`      |
-| `drop` | `( a -- )`          |
-| `swap` | `( a b -- b a )`    |
-| `over` | `( a b -- a b a )`  |
-| `2dup` | `( a b -- a b a b )` |
-| `2drop`| `( a b -- )`        |
+Kaiforth relies on hardware limits and strict machine-code validation rather than trusting software state or optimization predictions.
 
-```forth
-5 dup * .        \ 25  (5 squared)
-1 2 swap . .     \ 1 2
-```
+### 1. Dual-Guard Hardware Stack
+The Data Stack is allocated as a segmented memory-mapped region with explicit guard pages:
+- **Layout**: `[PROT_NONE Guard] [Data Pages: 1024 cells] [PROT_NONE Guard]`
+- **Effect**: Any attempt to overflow or underflow the stack triggers an immediate hardware `Segmentation Fault` (or `Access Violation` on Windows), halting the process instantly.
+- **Performance**: This allows the JIT-ed machine code to operate with **zero software bounds checks** on the stack, enabling native-speed arithmetic.
 
----
+### 2. JIT Trap Sanitization
+The generated machine code exhaustively sanitizes its environment before executing:
+- **Context Integrity**: Validates the `JitContext` for NULL pointers (Trap 8), 8-byte alignment (Trap 4), and a strict magic signature (Trap 3).
+- **Memory Safety**: Verifies the `memory_base` pointer is sane (Trap 7).
+- **Arithmetic Safety**: Pre-validates divisors before executing `idiv` to trap division by zero cleanly (Trap 6) instead of suffering uncatchable CPU exceptions.
 
-### Printing
-
-```forth
-42 .        \ print integer
-.s          \ show entire stack (non-destructive)
-65 emit     \ print ASCII character → A
-cr          \ newline
-```
+### 3. ANS-Compliant Unwinding
+If a trap or exception occurs, Kaiforth's `THROW/CATCH` system guarantees clean recovery:
+- `CATCH` frames anchor the call stack, return stack, and data depth.
+- `THROW` (or a caught JIT Trap) aborts execution and cleanly truncates all state back to the nearest anchor, preventing partial state leaks.
 
 ---
 
-### Defining Words
+## 🧠 Adaptive Intelligence & Persistence
 
-```forth
-: square ( n -- n^2 )  dup * ;
-: cube   ( n -- n^3 )  dup square * ;
+Kaiforth acts as a learning engine that adapts to workloads over time without relying on AI or heuristic guessing.
 
-5 square .   \ 25
-3 cube .     \ 27
-```
+### 1. Sequence Scoring & Feedback
+- **Promotion**: Sequences are scored based on cost-reduction yield (e.g., fusing memory operations scores exponentially higher than fusing simple math).
+- **Decay**: The system garbage-collects unused super-instructions by halving scores every ~200,000 instructions.
+- **Negative Feedback**: If a JIT sequence structurally traps, it receives a failure strike. Repeated failures permanently ban the sequence from future optimization.
 
-Words are compiled and optimized — `dup *` is fused into a single `Square` opcode automatically.
-
----
-
-### Variables & Constants
-
-```forth
-variable counter       \ declare a variable
-10 counter !           \ store 10 into counter
-counter @ .            \ fetch and print → 10
-
-42 constant answer     \ declare a constant
-answer .               \ → 42
-```
+### 2. Versioned Persistence
+The `OptimizerState` can be serialized to disk (`opt.json`), allowing the VM to evolve across sessions:
+- **Instant Warm-Up**: A restarted VM reloads known hot patterns and compiles them instantly, bypassing the Tier 1 profiling phase.
+- **Integrity Validation**: Snapshots are wrapped in a `PersistenceContainer` with magic headers and version bytes. Incompatible or corrupted snapshots are gracefully rejected to maintain stability.
 
 ---
 
-### Conditionals
+## ⚡ Advanced Optimizations
 
-```forth
-\ if ... then
-: positive? ( n -- )
-  0 > if ." yes" then ;
-
-\ if ... else ... then
-: sign ( n -- )
-  0 < if ." negative" else ." non-negative" then ;
-```
+- **Vectorized SIMD Dispatch**: When the optimizer detects contiguous memory operations, the JIT emits SSE/AVX instructions (e.g., `MOVUPS`) to load/store 128-bit blocks (2 x 64-bit cells) simultaneously, significantly reducing latency for high-density data words.
+- **Native Control Flow JIT**: The emitter fully supports `Jump` and `JZ` structures with relative patch resolution, eliminating the interpreter dispatch overhead entirely inside tight operational loops.
 
 ---
 
-### Loops
+## 💻 Cross-Platform Guarantee
 
-```forth
-\ begin ... until  (repeat until top is nonzero)
-: countdown ( n -- )
-  begin
-    dup .
-    1 -
-    dup 0 =
-  until
-  drop ;
-
-5 countdown    \ prints: 5 4 3 2 1
-
-\ begin ... while ... repeat
-: sum-to ( n -- sum )
-  0 swap
-  begin
-    dup 0 >
-  while
-    over + swap 1 - swap
-  repeat
-  drop ;
-
-10 sum-to .    \ 55
-```
-
----
-
-### Recursion
-
-```forth
-: fib ( n -- fib[n] )
-  dup 2 < if exit then
-  dup 1 - recurse
-  swap 2 - recurse
-  + ;
-
-10 fib .    \ 55
-```
-
----
-
-### Float Arithmetic
-
-```forth
-1.5 2.5 f+ f.    \ 4.0
-3.0 2.0 f* f.    \ 6.0
-10.0 4.0 f/ f.   \ 2.5
-```
-
----
-
-### Comparisons
-
-```forth
-3 5 <  .    \ -1  (true in Forth)
-5 3 <  .    \ 0   (false)
-4 4 =  .    \ -1
-0 0=   .    \ -1  (0= checks if zero)
-```
-
-Forth uses `-1` for true and `0` for false.
-
----
-
-### Including Files
-
-```forth
-include examples/fib.fs
-```
-
----
-
-### Diagnostic Tools
-
-```forth
-see square      \ decompile and show optimized bytecode of 'square'
-trace           \ toggle instruction-level tracing ON/OFF
-bench           \ toggle execution timing ON/OFF
-.s              \ show current stack
-bye             \ exit
-```
-
-**Example `see` output:**
-```
-Definition of 'square':
-   0 | Square          ← dup * was fused into one opcode
-   1 | Exit
-```
-
----
-
-## Examples
-
-Run the included examples:
-
-```bash
-cargo run --release -- examples/fib.fs
-cargo run --release -- benchmarks/bench.fs
-```
-
----
-
-## Architecture
-
-| Layer | Detail |
-|---|---|
-| **Instruction set** | 16 opcodes packed as `u8` (cache-friendly) |
-| **Optimizer** | Recursive fix-point: constant folding + superinstruction fusion |
-| **Safety** | Zero `unsafe`, zero `unwrap`, all errors return `ForthResult` |
-| **Diagnostics** | `RichError` with call stack, word context, data/float snapshots |
-| **Dispatch** | `match` on safe `Op::from_u8` — validated at every step |
+Kaiforth normalizes ABI inconsistencies (Win64 vs. SysV) entirely within its isolated `jit/abi.rs` layer. The GitHub Actions CI pipeline ensures that context pointers, memory protection, and trap logic execute deterministically across **Windows**, **Linux**, and **macOS**.

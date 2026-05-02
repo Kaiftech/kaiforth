@@ -26,43 +26,33 @@ pub struct Vm {
 
 impl Vm {
     pub fn new() -> ForthResult<Self> {
-        // Allocate 1024 cells (8KB) + 1 Guard Page (4KB)
-        // Total 12KB
         let page_size = 4096;
-        let stack_size = 1024 * 8; // 8KB
-        let total_size = stack_size + page_size;
+        let stack_size = 1024 * 8; // 8KB (2 pages)
+        // Total 4 pages: [Guard][Data][Data][Guard]
+        let total_size = stack_size + (page_size * 2);
 
         let mut mmap = MmapOptions::new()
             .len(total_size)
             .map_anon()
             .map_err(|e| ForthError::new(ForthErrorKind::ExecutionStateCorrupted(e.to_string()), ForthPhase::Initialization, "Stack Allocation Failure"))?;
 
-        // Protect the guard page (last page)
-        // Note: memmap2 doesn't have a direct "protect" method on MmapMut easily for a subrange in a cross-platform way without unsafe or platform-specific calls.
-        // However, we can use the 'mmap' crate's safety or just use the whole region as data for now, 
-        // but the JIT will check depth. 
-        // To truly satisfy the user's "Hardware protection" request on Windows:
+        // Protect the guard pages (first and last)
         #[cfg(windows)]
         {
             use windows_sys::Win32::System::Memory::{VirtualProtect, PAGE_NOACCESS};
             let mut old_protect = 0;
             unsafe {
-                VirtualProtect(
-                    mmap.as_ptr().add(stack_size) as *const _,
-                    page_size,
-                    PAGE_NOACCESS,
-                    &mut old_protect
-                );
+                // Leading guard
+                VirtualProtect(mmap.as_ptr() as *const _, page_size, PAGE_NOACCESS, &mut old_protect);
+                // Trailing guard
+                VirtualProtect(mmap.as_ptr().add(stack_size + page_size) as *const _, page_size, PAGE_NOACCESS, &mut old_protect);
             }
         }
         #[cfg(not(windows))]
         {
             unsafe {
-                libc::mprotect(
-                    mmap.as_ptr().add(stack_size) as *mut _,
-                    page_size,
-                    libc::PROT_NONE
-                );
+                libc::mprotect(mmap.as_ptr() as *mut _, page_size, libc::PROT_NONE);
+                libc::mprotect(mmap.as_ptr().add(stack_size + page_size) as *mut _, page_size, libc::PROT_NONE);
             }
         }
 
@@ -74,6 +64,7 @@ impl Vm {
     }
 
     pub fn d_stack_ptr(&self) -> *mut i64 {
-        self.d_stack.as_ptr() as *mut i64
+        // Offset by page_size to reach the data region
+        unsafe { (self.d_stack.as_ptr() as *mut i64).add(4096 / 8) }
     }
 }
