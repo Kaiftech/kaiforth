@@ -8,6 +8,18 @@ pub enum ExecutionStatus {
     Thrown(i64),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum TraceEvent {
+    Op(Op, u64),
+    EnterWord(usize),
+    ExitWord,
+    LoopStart,
+    LoopEnd,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sym { Unknown, Literal(i64) }
+
 #[repr(u8)] #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Op {
     Noop = 0, Push = 1, PushF = 2, Prim = 3, Call = 4, Ret = 5, Jump = 6, JZ = 7,
@@ -66,4 +78,14 @@ pub struct SemanticContract {
     pub mem: MemoryAccess,
     pub pure: bool, 
     pub side_effects: bool,
+}
+
+impl MemoryAccess {
+    pub fn canonicalize(&mut self) {
+        self.read_set.sort_by_key(|r| r.start);
+        self.write_set.sort_by_key(|r| r.start);
+    }
+    pub fn has_alias_risk(&self) -> bool {
+        self.unknown_read || self.unknown_write || !self.write_set.is_empty()
+    }
 }

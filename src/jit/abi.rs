@@ -16,6 +16,8 @@ pub type JitFuncAbi = unsafe extern "win64" fn(*mut JitContext);
 pub type JitFuncAbi = unsafe extern "sysv64" fn(*mut JitContext);
 
 pub unsafe fn call_jit(func_ptr: *const u8, ctx: &mut JitContext) {
-    let func: JitFuncAbi = std::mem::transmute(func_ptr);
-    func(ctx);
+    unsafe {
+        let func: JitFuncAbi = std::mem::transmute(func_ptr);
+        func(ctx);
+    }
 }

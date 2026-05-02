@@ -117,3 +117,37 @@ impl Vm {
         }
     }
 }
+
+impl Op {
+    pub fn execute_inline(&self, data: u64, sys: &mut System, vm: &mut Vm) -> ForthResult<()> {
+        match self {
+            Op::Noop | Op::Call | Op::Ret | Op::Catch | Op::Throw | Op::Super => {},
+            Op::Push => vm.d_push(data as i64)?,
+            Op::PushF => vm.f_push(f64::from_bits(data))?,
+            Op::Drop => { vm.d_pop()?; },
+            Op::Dup => { let a = vm.d_pop()?; vm.d_push(a)?; vm.d_push(a)?; },
+            Op::Swap => { let a = vm.d_pop()?; let b = vm.d_pop()?; vm.d_push(a)?; vm.d_push(b)?; },
+            Op::Over => { let a = vm.d_pop()?; let b = vm.d_pop()?; vm.d_push(b)?; vm.d_push(a)?; vm.d_push(b)?; },
+            Op::Rot => { let a = vm.d_pop()?; let b = vm.d_pop()?; let c = vm.d_pop()?; vm.d_push(b)?; vm.d_push(a)?; vm.d_push(c)?; },
+            Op::Add => { let a = vm.d_pop()?; let b = vm.d_pop()?; vm.d_push(b.wrapping_add(a))?; },
+            Op::Sub => { let a = vm.d_pop()?; let b = vm.d_pop()?; vm.d_push(b.wrapping_sub(a))?; },
+            Op::Mul => { let a = vm.d_pop()?; let b = vm.d_pop()?; vm.d_push(b.wrapping_mul(a))?; },
+            Op::Div => { 
+                let a = vm.d_pop()?; 
+                if a == 0 { return Err(ForthError::new(ForthErrorKind::DivideByZero, ForthPhase::Execution, "Division by Zero")); }
+                let b = vm.d_pop()?; 
+                vm.d_push(b.wrapping_div(a))?; 
+            },
+            Op::Jump => vm.ip = (vm.ip as i64 + data as i64) as usize,
+            Op::JZ => { let a = vm.d_pop()?; if a == 0 { vm.ip = (vm.ip as i64 + data as i64) as usize; } },
+            Op::Fetch => { let a = vm.d_pop()?; vm.d_push(sys.memory.read_i64(a as usize)?)?; },
+            Op::Store => { let a = vm.d_pop()?; let val = vm.d_pop()?; sys.memory.write_i64(a as usize, val)?; },
+            Op::Eq => { let a = vm.d_pop()?; let b = vm.d_pop()?; vm.d_push(if b == a { 1 } else { 0 })?; },
+            Op::Lt => { let a = vm.d_pop()?; let b = vm.d_pop()?; vm.d_push(if b < a { 1 } else { 0 })?; },
+            Op::Gt => { let a = vm.d_pop()?; let b = vm.d_pop()?; vm.d_push(if b > a { 1 } else { 0 })?; },
+            _ => { return Err(ForthError::new(ForthErrorKind::InvalidOpcode(0), ForthPhase::Execution, "Unimplemented Opcode")); }
+        }
+        Ok(())
+    }
+}
+

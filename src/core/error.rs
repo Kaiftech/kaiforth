@@ -8,7 +8,8 @@ pub enum ForthErrorKind {
     UnknownToken(String),
     WordNotFound(String),
     DivideByZero,
-    MemoryOutOfBounds { addr: usize, limit: usize },
+    MemoryOOB { addr: usize, limit: usize },
+    FileError { context: String, source: String },
     Abort(String),
     OptimizationFailed(String),
     ExecutionStateCorrupted(String),
@@ -40,8 +41,8 @@ pub struct ForthError {
 }
 
 impl ForthError {
-    pub fn new(kind: ForthErrorKind, phase: ForthPhase, message: &str) -> Self {
-        Self { kind, phase, message: message.to_string() }
+    pub fn new<S: Into<String>>(kind: ForthErrorKind, phase: ForthPhase, message: S) -> Self {
+        Self { kind, phase, message: message.into() }
     }
 }
 

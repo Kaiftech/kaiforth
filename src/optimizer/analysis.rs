@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
 use crate::core::types::{Op, SemanticContract, TraceEvent};
+use crate::core::error::{ForthResult, ForthError, ForthErrorKind, ForthPhase};
+
 use crate::optimizer::contract::validate_sequence_contract;
 use crate::optimizer::segmentation::build_safe_segments;
 

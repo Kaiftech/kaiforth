@@ -39,9 +39,12 @@ impl Vm {
         // Protect the guard pages (first and last)
         #[cfg(windows)]
         {
-            use windows_sys::Win32::System::Memory::{VirtualProtect, PAGE_NOACCESS};
-            let mut old_protect = 0;
             unsafe {
+                unsafe extern "system" {
+                    fn VirtualProtect(lpAddress: *const std::ffi::c_void, dwSize: usize, flNewProtect: u32, lpflOldProtect: *mut u32) -> i32;
+                }
+                const PAGE_NOACCESS: u32 = 0x01;
+                let mut old_protect = 0;
                 // Leading guard
                 VirtualProtect(mmap.as_ptr() as *const _, page_size, PAGE_NOACCESS, &mut old_protect);
                 // Trailing guard

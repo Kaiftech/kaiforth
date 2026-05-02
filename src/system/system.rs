@@ -1,10 +1,21 @@
 use std::collections::HashMap;
-use crate::core::error::{ForthResult, ForthError, ForthErrorKind, ForthPhase};
-use crate::core::types::{Op, ExecutionStatus, TraceEvent};
-use crate::vm::state::{Vm, WordEntry, WordKind};
+use crate::core::error::{ForthResult, ForthError};
+use crate::core::types::{Op, TraceEvent};
+use crate::vm::state::Vm;
 use crate::vm::memory::Memory;
 use crate::optimizer::analysis::OptimizerState;
 use crate::jit::runtime::JitEngine;
+
+pub enum WordKind {
+    Primitive(usize),
+    Defined(usize),
+    Variable(usize),
+}
+
+pub struct WordEntry {
+    pub name: String,
+    pub kind: WordKind,
+}
 
 pub struct CodeBuf { pub ops: Vec<u8>, pub data: Vec<u64> }
 impl CodeBuf {

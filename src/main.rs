@@ -24,16 +24,16 @@ mod system {
     pub mod system;
 }
 
-use crate::core::error::{ForthResult, ForthError, ForthErrorKind, ForthPhase};
-use crate::core::types::{Op, ExecutionStatus};
+use crate::core::error::{ForthResult, ForthErrorKind};
+use crate::core::types::ExecutionStatus;
 use crate::vm::state::Vm;
 use crate::system::system::System;
-use crate::compiler::parser::{Parser, Token};
+use crate::compiler::parser::Parser;
 
 #[inline(always)]
 pub fn read_cycle_counter() -> u64 {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    { unsafe { core::arch::x86_64::_rdtsc() } }
+    { unsafe { std::arch::x86_64::_rdtsc() } }
     #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
     { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("Clock fail").as_nanos() as u64 }
 }

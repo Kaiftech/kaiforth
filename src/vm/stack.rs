@@ -32,4 +32,12 @@ impl Vm {
         let a = self.d_pop()?;
         Ok((a, b))
     }
+
+    pub fn f_push(&mut self, val: f64) -> ForthResult<()> {
+        self.f_stack.push(val); Ok(())
+    }
+
+    pub fn f_pop(&mut self) -> ForthResult<f64> {
+        self.f_stack.pop().ok_or_else(|| ForthError::new(ForthErrorKind::StackUnderflow { exp: 1, found: 0 }, ForthPhase::Execution, "Float Stack Fault"))
+    }
 }

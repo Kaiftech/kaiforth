@@ -139,7 +139,7 @@ impl JitEngine {
             ]);
         }
 
-        let mut mmap = MmapOptions::new().len(code.len().max(4096)).map_anon().unwrap().make_mut().unwrap();
+        let mut mmap = MmapOptions::new().len(code.len().max(4096)).map_anon().unwrap();
         mmap[..code.len()].copy_from_slice(&code);
         self.blocks.insert(super_idx, (mmap, contract.clone(), ops.len()));
     }
