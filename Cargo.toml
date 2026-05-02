@@ -1,7 +1,7 @@
 [package]
 name = "kaiforth"
 version = "6.0.0"
-edition = "2021"
+edition = "2024"
 description = "High-performance Forth VM in safe Rust — packed opcodes, recursive optimizer, zero panics"
 license = "MIT"
 readme = "README.md"

@@ -6,6 +6,45 @@ The architecture strictly adheres to a **Zero-Trust Model**, ensuring that specu
 
 ---
 
+## 🚀 Quickstart
+
+Get up and running with Kaiforth in seconds.
+
+### Prerequisites
+- Rust (Edition 2024, version 1.85+)
+- Cargo
+
+### Build & Run
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/kaiforth.git
+cd kaiforth
+
+# Build for release (Optimized JIT requires release mode for peak performance)
+cargo build --release
+
+# Run the REPL
+cargo run --release
+
+# Run a specific Forth script
+cargo run --release -- script.fth
+```
+
+---
+
+## 📜 The History & The Glory
+
+Kaiforth was born out of a desire to see how fast, safe, and intelligent a modern Forth engine could be when built with extreme architectural discipline.
+
+- **Phase 1: The Zero-Panic Interpreter.** We started by eliminating all `unwrap()`, `expect()`, and unchecked memory access. Every failure became a strictly typed `ForthResult`. The foundation was unshakeable, but purely interpreted.
+- **Phase 2: The Adaptive Profiler.** We didn't want a static, predictable engine. We built a trace-based telemetry system that watches chronological execution, detects loops, and scores repetitive mathematical sequences based on CPU cycle-reduction yield.
+- **Phase 3: The JIT Emitter.** Safe Basic Blocks were converted into native x64 machine code. We bypassed the interpreter dispatch overhead and achieved near-native arithmetic speeds.
+- **Phase 4: Extreme Hardening (The Glory).** We stopped trusting our own software. We implemented **Hardware-Enforced Stack Pages** (`[Guard][Data][Guard]`), O(1) Pre-Execution Contracts, and JIT Trap Sanitization. Finally, we added **SIMD Vectorized Memory Dispatch** and **Versioned Persistence** to instantly warm up the VM across sessions.
+
+Kaiforth is no longer just a toy interpreter; it is a **hardware-backed, context-aware, adaptive execution engine.**
+
+---
+
 ## 🏗️ Architecture & Tiered Execution
 
 Kaiforth utilizes a 3-tier execution strategy to balance cold-start latency with peak runtime performance:
