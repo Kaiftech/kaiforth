@@ -48,7 +48,6 @@ pub fn validate_sequence_contract(seq: &[(Op, u64)]) -> Option<(SemanticContract
     let mut current_r: i64 = 0;
     let mut unknown_read = false;
     let mut unknown_write = false;
-    let mut alias_barrier = false;
     let mut pure = true;
     let mut side_effects = false;
 
@@ -63,7 +62,6 @@ pub fn validate_sequence_contract(seq: &[(Op, u64)]) -> Option<(SemanticContract
         current_r += contract.push_r as i64;
         unknown_read |= contract.mem.unknown_read;
         unknown_write |= contract.mem.unknown_write;
-        alias_barrier |= contract.mem.alias_barrier;
         pure &= contract.pure;
         side_effects |= contract.side_effects;
     }
@@ -98,8 +96,8 @@ pub fn validate_sequence_contract(seq: &[(Op, u64)]) -> Option<(SemanticContract
         pop_r: (-min_r) as usize,
         push_r: (current_r - min_r) as usize,
         mem: MemoryAccess { 
-            read_set: exact_addresses.iter().filter(|&&a| seq.iter().any(|&(op,_)| matches!(op, Op::Fetch))).map(|&a| AddressRange { start: a, end: a + 8 }).collect(),
-            write_set: exact_addresses.iter().filter(|&&a| seq.iter().any(|&(op,_)| matches!(op, Op::Store))).map(|&a| AddressRange { start: a, end: a + 8 }).collect(),
+            read_set: exact_addresses.iter().filter(|&&_a| seq.iter().any(|&(op,_)| matches!(op, Op::Fetch))).map(|&a| AddressRange { start: a, end: a + 8 }).collect(),
+            write_set: exact_addresses.iter().filter(|&&_a| seq.iter().any(|&(op,_)| matches!(op, Op::Store))).map(|&a| AddressRange { start: a, end: a + 8 }).collect(),
             unknown_read: unknown_read || unknown_address, 
             unknown_write: unknown_write || unknown_address, 
             alias_barrier: false

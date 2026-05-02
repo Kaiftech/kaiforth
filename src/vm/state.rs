@@ -31,7 +31,7 @@ impl Vm {
         // Total 4 pages: [Guard][Data][Data][Guard]
         let total_size = stack_size + (page_size * 2);
 
-        let mut mmap = MmapOptions::new()
+        let mmap = MmapOptions::new()
             .len(total_size)
             .map_anon()
             .map_err(|e| ForthError::new(ForthErrorKind::ExecutionStateCorrupted(e.to_string()), ForthPhase::Initialization, "Stack Allocation Failure"))?;

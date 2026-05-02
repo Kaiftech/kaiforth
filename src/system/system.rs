@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use crate::core::error::{ForthResult, ForthError};
+use crate::core::error::ForthResult;
 use crate::core::types::{Op, TraceEvent};
-use crate::vm::state::Vm;
 use crate::vm::memory::Memory;
 use crate::optimizer::analysis::OptimizerState;
 use crate::jit::runtime::JitEngine;

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use memmap2::{MmapMut, MmapOptions};
-use crate::jit::abi::JitContext;
 use crate::core::types::{Op, SemanticContract};
 
 pub struct JitEngine {

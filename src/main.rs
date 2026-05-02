@@ -24,7 +24,7 @@ mod system {
     pub mod system;
 }
 
-use crate::core::error::{ForthResult, ForthErrorKind};
+use crate::core::error::ForthResult;
 use crate::core::types::ExecutionStatus;
 use crate::vm::state::Vm;
 use crate::system::system::System;

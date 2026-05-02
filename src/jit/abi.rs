@@ -8,12 +8,12 @@ pub struct JitContext {
     pub trap_ip: usize,
 }
 
-pub type JitFunc = unsafe extern "C" fn(*mut JitContext);
-
-#[cfg(windows)]
+#[cfg(all(windows, target_arch = "x86_64"))]
 pub type JitFuncAbi = unsafe extern "win64" fn(*mut JitContext);
-#[cfg(not(windows))]
+#[cfg(all(not(windows), target_arch = "x86_64"))]
 pub type JitFuncAbi = unsafe extern "sysv64" fn(*mut JitContext);
+#[cfg(not(target_arch = "x86_64"))]
+pub type JitFuncAbi = unsafe extern "C" fn(*mut JitContext);
 
 pub unsafe fn call_jit(func_ptr: *const u8, ctx: &mut JitContext) {
     unsafe {
