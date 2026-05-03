@@ -46,7 +46,8 @@ pub struct Vm {
 impl Vm {
     pub fn new() -> ForthResult<Self> {
         let page_size = Self::get_page_size();
-        let stack_size = D_STACK_SIZE; 
+        // Ensure stack_size is a multiple of page_size for correct alignment of the top guard page.
+        let stack_size = (D_STACK_SIZE + page_size - 1) & !(page_size - 1); 
         let total_size = stack_size + (page_size * 2);
 
         let mut mmap = MmapOptions::new()
@@ -141,7 +142,7 @@ impl Vm {
 
     pub fn verify_canaries(&self) -> ForthResult<()> {
         let page_size = Self::get_page_size();
-        let stack_size = D_STACK_SIZE;
+        let stack_size = (D_STACK_SIZE + page_size - 1) & !(page_size - 1);
         unsafe {
             let base = self.d_stack.as_ptr().add(page_size) as *const u64;
             if *base != CANARY_VALUE { return Err(ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Execution)); }
@@ -153,7 +154,7 @@ impl Vm {
 
     pub fn try_clone(&self) -> ForthResult<Self> {
         let page_size = Self::get_page_size();
-        let stack_size = D_STACK_SIZE;
+        let stack_size = (D_STACK_SIZE + page_size - 1) & !(page_size - 1);
         let total_size = stack_size + (page_size * 2);
 
         let mut new_stack = MmapOptions::new()
