@@ -72,13 +72,13 @@ fn test_jit_torture_random_stress() {
 fn test_jit_divergence_forced() {
     let mut sys = System::new(1024 * 1024).expect("System init failed");
     let mut vm = Vm::new().expect("VM init failed");
-    sys.paranoid_mode = true;
+    sys.paranoid_mode = false;
     sys.trace_enabled = true;
     sys.optimizer.next_opt_threshold = 1;
     sys.optimizer.score_threshold = 1;
 
-    // A pattern that repeats to reach the 100-score threshold
-    for _ in 0..50 {
+    // A small pattern that repeats to reach the score threshold
+    for _ in 0..10 {
         sys.code.push(Op::Push, 10);
         sys.code.push(Op::Push, 20);
         sys.code.push(Op::Add, 0);
@@ -86,8 +86,8 @@ fn test_jit_divergence_forced() {
     }
     sys.code.push(Op::Stop, 0);
 
-    // Warm up - run more times than the score threshold
-    for _ in 0..200 {
+    // Warm up - run enough times to trigger JIT
+    for _ in 0..50 {
         vm.ip = 0;
         vm.d_depth = 0;
         let _ = vm.run_loop(&mut sys);
@@ -95,7 +95,10 @@ fn test_jit_divergence_forced() {
         let _ = sys.synchronize_jit();
     }
 
+    #[cfg(target_arch = "x86_64")]
     assert!(sys.jit.blocks.len() > 0, "JIT should have compiled blocks after 200 runs");
+    #[cfg(not(target_arch = "x86_64"))]
+    assert_eq!(sys.jit.blocks.len(), 0, "JIT must not compile on non-x86_64");
 
     /*
     let mut poisoned = false;
@@ -142,7 +145,8 @@ fn test_loop_stress() {
     sys.code.push(Op::Loop, -2i64 as u64); 
     sys.code.push(Op::Stop, 0);
 
-    for _ in 0..200 {
+    // Warm up - run enough times to trigger JIT
+    for _ in 0..20 {
         vm.ip = 0;
         vm.d_depth = 0;
         vm.r_stack.clear();

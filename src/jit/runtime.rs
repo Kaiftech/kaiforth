@@ -126,17 +126,15 @@ impl JitEngine {
         ]);
         traps_fixups.push((code.len() - 4, 10, 0)); 
 
-        // Version and Size Check
+        // Version and Size Check (struct_size at offset 16)
         code.extend_from_slice(&[
             0x48, 0x83, 0x7B, 0x08, 0x01,                         // cmp qword [rbx+8], 1 (version)
             0x0F, 0x85, 0x00, 0x00, 0x00, 0x00,                   // jne trap (10)
-        ]);
-        traps_fixups.push((code.len() - 4, 10, 0));
-        code.extend_from_slice(&[
-            0x48, 0x81, 0x7B, 0x10, 0x08, 0x01, 0x00, 0x00,       // cmp qword [rbx+16], 264 (size)
+            0x48, 0x81, 0x7B, 0x10, 0x08, 0x01, 0x00, 0x00,       // cmp qword [rbx+16], 264 (struct_size)
             0x0F, 0x85, 0x00, 0x00, 0x00, 0x00,                   // jne trap (10)
         ]);
-        traps_fixups.push((code.len() - 4, 10, 0));
+        traps_fixups.push((code.len() - 10, 10, 0)); // Fixup for version check trap
+        traps_fixups.push((code.len() - 4, 10, 0));  // Fixup for size check trap
 
         // Load State
         code.extend_from_slice(&[
@@ -477,14 +475,14 @@ impl JitEngine {
                     // Fetch current index from loop_stack
                     code.extend_from_slice(&[
                         0x4C, 0x8B, 0x8B, 0x90, 0x00, 0x00, 0x00, // r9 = loop_stack_ptr
-                        0x4C, 0x8B, 0x93, 0x98, 0x00, 0x00, 0x00, // rdx = loop_stack_depth
+                        0x48, 0x8B, 0x93, 0x98, 0x00, 0x00, 0x00, // rdx = loop_stack_depth
                         0x49, 0x83, 0xFA, 0x01, 0x0F, 0x82, 0x00, 0x00, 0x00, 0x00, // jb trap
                     ]);
                     traps_fixups.push((code.len() - 4, 9, idx as u32));
                     code.extend_from_slice(&[
-                        0x49, 0x8B, 0x44, 0xD1, 0xF8,             // r8 = [r9 + rdx*8 - 8] (start)
-                        0x4F, 0x89, 0x44, 0xDD, 0x00,             // [r13 + r11*8 + 0] = r8
-                        0x49, 0xFF, 0xC3,                         // r11++
+                        0x4B, 0x8B, 0x44, 0xD1, 0xF8,             // mov rax, [r9 + rdx*8 - 8]
+                        0x4D, 0x89, 0x04, 0xDD,                   // mov [r13 + r11*8], rax
+                        0x49, 0xFF, 0xC3,                         // inc r11
                     ]);
                 }
                 _ => { 

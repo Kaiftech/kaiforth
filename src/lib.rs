@@ -59,6 +59,7 @@ impl Vm {
         loop {
             if sys.optimizer.should_run_optimizer() {
                 sys.optimizer.observe_runtime_traces(&mut sys.runtime_trace);
+                sys.runtime_trace.clear();
                 sys.synchronize_jit()?;
             }
 

@@ -190,7 +190,9 @@ impl System {
                 let ops = ctx.ops.clone();
                 match self.jit.compile_super(ip, &ops, &contract, Some(ctx)) {
                     Ok(_) => { if self.paranoid_mode { println!("[DEBUG] JIT Compiled block at IP: {}", ip); } }
-                    Err(e) => { if self.paranoid_mode { println!("[DEBUG] JIT Compile FAILED at IP: {}: {:?}", ip, e); } }
+                    Err(e) => { 
+                        if self.paranoid_mode { println!("[DEBUG] JIT Compile FAILED at IP: {}: {:?}", ip, e); } 
+                    }
                 }
             }
         }

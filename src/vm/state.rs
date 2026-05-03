@@ -125,12 +125,13 @@ impl Vm {
                 }
                 let mut si: SYSTEM_INFO = std::mem::zeroed();
                 GetSystemInfo(&mut si);
-                si.dwPageSize as usize
+                if si.dwPageSize == 0 { 4096 } else { si.dwPageSize as usize }
             }
         }
         #[cfg(not(windows))]
         {
-            unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize }
+            let ps = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+            if ps <= 0 { 4096 } else { ps as usize }
         }
     }
 
