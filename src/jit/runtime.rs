@@ -85,6 +85,11 @@ impl JitEngine {
     }
 
     pub fn compile_super(&mut self, super_idx: usize, ops: &[(Op, u64)], contract: &SemanticContract, context: Option<PatternContext>) -> ForthResult<()> {
+        // JIT compilation only supports x86_64. On other architectures the VM
+        // falls back silently to the interpreter. No-op here is correct.
+        if !cfg!(target_arch = "x86_64") {
+            return Err(ForthError::new(ForthErrorKind::OptimizationFailed, ForthPhase::Compilation));
+        }
         if ops.len() > MAX_BLOCK_OPS {
             return Err(ForthError::new(ForthErrorKind::Abort, ForthPhase::Compilation));
         }

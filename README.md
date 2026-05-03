@@ -1,5 +1,9 @@
 # Kaiforth: Production-Grade JIT-Optimized Forth VM
 
+[![CI](https://github.com/kaiftech/kaiforth/actions/workflows/ci.yml/badge.svg)](https://github.com/kaiftech/kaiforth/actions/workflows/ci.yml)
+[![Release](https://github.com/kaiftech/kaiforth/actions/workflows/release.yml/badge.svg)](https://github.com/kaiftech/kaiforth/releases/latest)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 Kaiforth is a high-performance, hardware-hardened, and ANS Forth compliant Virtual Machine written in Rust. It features a state-of-the-art JIT compiler with differential execution verification, designed for safety-critical and performance-sensitive applications.
 
 ## 🚀 Key Features
@@ -12,28 +16,61 @@ Kaiforth is a high-performance, hardware-hardened, and ANS Forth compliant Virtu
 
 ---
 
-## 🛠️ Getting Started
+## ⬇️ Download Pre-Built Binaries
+
+No Rust installation required. Grab the latest release for your platform directly from [GitHub Releases](https://github.com/kaiftech/kaiforth/releases/latest):
+
+| Platform | Architecture | Download |
+|---|---|---|
+| Linux | x86_64 | [`kaiforth-linux-x86_64`](https://github.com/kaiftech/kaiforth/releases/latest/download/kaiforth-linux-x86_64) |
+| Windows | x86_64 | [`kaiforth-windows-x86_64.exe`](https://github.com/kaiftech/kaiforth/releases/latest/download/kaiforth-windows-x86_64.exe) |
+| macOS | Intel (x86_64) | [`kaiforth-macos-x86_64`](https://github.com/kaiftech/kaiforth/releases/latest/download/kaiforth-macos-x86_64) |
+| macOS | Apple Silicon (ARM64) | [`kaiforth-macos-arm64`](https://github.com/kaiftech/kaiforth/releases/latest/download/kaiforth-macos-arm64) |
+
+**Linux/macOS** — make it executable and run:
+```bash
+chmod +x kaiforth-linux-x86_64
+./kaiforth-linux-x86_64
+```
+
+**Windows** — just double-click or run from PowerShell:
+```powershell
+.\kaiforth-windows-x86_64.exe
+```
+
+---
+
+## 🛠️ Build From Source
 
 ### Prerequisites
-- **Rust**: [Install Rust](https://rustup.rs/) (2021 Edition or later).
-- **Platform**: Supports Windows, Linux, and macOS. Native JIT acceleration is currently optimized for x86_64; other architectures (like AArch64) automatically fallback to the high-performance interpreter core.
+- **Rust**: [Install Rust](https://rustup.rs/) (2024 Edition).
+- **Platform**: Windows, Linux, macOS. JIT acceleration is x86_64 only; AArch64 automatically uses the interpreter core.
 
-### Build and Install
 ```bash
 git clone https://github.com/kaiftech/kaiforth.git
 cd kaiforth
 cargo build --release
 ```
 
+Output binary:
+```
+target/release/kaiforth        # Linux / macOS
+target/release/kaiforth.exe    # Windows
+```
+
 ### Run the REPL
-Start the interactive interpreter:
 ```bash
 ./target/release/kaiforth
 ```
 
-### Run a Script
+### Run a Forth Script
 ```bash
 ./target/release/kaiforth script.fs
+```
+
+### Run Tests
+```bash
+cargo test
 ```
 
 ---

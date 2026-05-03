@@ -58,6 +58,12 @@ impl JitContext {
 }
 
 pub unsafe fn call_jit(func_ptr: *const u8, ctx: &mut JitContext) -> ForthResult<()> {
+    // Safety: We must never execute x86_64 machine code on non-x86_64 targets.
+    // This guard is the last line of defence before SIGILL.
+    if !cfg!(target_arch = "x86_64") {
+        return Err(ForthError::new(ForthErrorKind::OptimizationFailed, ForthPhase::Execution));
+    }
+
     if func_ptr.is_null() || (func_ptr as usize) % 16 != 0 {
         return Err(ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Execution));
     }
