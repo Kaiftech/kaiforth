@@ -65,17 +65,20 @@ impl Vm {
 
         #[cfg(windows)]
         {
+            unsafe extern "system" {
+                fn VirtualProtect(lpAddress: *const std::ffi::c_void, dwSize: usize, flNewProtect: u32, lpflOldProtect: *mut u32) -> i32;
+                fn GetLastError() -> u32;
+            }
+            const PAGE_NOACCESS: u32 = 0x01;
             unsafe {
-                unsafe extern "system" {
-                    fn VirtualProtect(lpAddress: *const std::ffi::c_void, dwSize: usize, flNewProtect: u32, lpflOldProtect: *mut u32) -> i32;
-                }
-                const PAGE_NOACCESS: u32 = 0x01;
                 let mut old_protect = 0;
+                // Guard bottom page
                 if VirtualProtect(mmap.as_ptr() as *const _, page_size, PAGE_NOACCESS, &mut old_protect) == 0 {
-                    return Err(ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Initialization));
+                    return Err(ForthError::new(ForthErrorKind::SystemError { code: GetLastError() as i32 }, ForthPhase::Initialization));
                 }
+                // Guard top page
                 if VirtualProtect(mmap.as_ptr().add(stack_size + page_size) as *const _, page_size, PAGE_NOACCESS, &mut old_protect) == 0 {
-                    return Err(ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Initialization));
+                    return Err(ForthError::new(ForthErrorKind::SystemError { code: GetLastError() as i32 }, ForthPhase::Initialization));
                 }
             }
         }
@@ -83,10 +86,10 @@ impl Vm {
         {
             unsafe {
                 if libc::mprotect(mmap.as_ptr() as *mut _, page_size, libc::PROT_NONE) != 0 {
-                    return Err(ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Initialization));
+                    return Err(ForthError::new(ForthErrorKind::SystemError { code: -1 }, ForthPhase::Initialization));
                 }
                 if libc::mprotect(mmap.as_ptr().add(stack_size + page_size) as *mut _, page_size, libc::PROT_NONE) != 0 {
-                    return Err(ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Initialization));
+                    return Err(ForthError::new(ForthErrorKind::SystemError { code: -1 }, ForthPhase::Initialization));
                 }
             }
         }
@@ -127,11 +130,11 @@ impl Vm {
 
         #[cfg(windows)]
         {
+            unsafe extern "system" {
+                fn VirtualProtect(lpAddress: *const std::ffi::c_void, dwSize: usize, flNewProtect: u32, lpflOldProtect: *mut u32) -> i32;
+            }
+            const PAGE_NOACCESS: u32 = 0x01;
             unsafe {
-                unsafe extern "system" {
-                    fn VirtualProtect(lpAddress: *const std::ffi::c_void, dwSize: usize, flNewProtect: u32, lpflOldProtect: *mut u32) -> i32;
-                }
-                const PAGE_NOACCESS: u32 = 0x01;
                 let mut old_protect = 0;
                 let _ = VirtualProtect(new_stack.as_ptr() as *const _, page_size, PAGE_NOACCESS, &mut old_protect);
                 let _ = VirtualProtect(new_stack.as_ptr().add(stack_size + page_size) as *const _, page_size, PAGE_NOACCESS, &mut old_protect);

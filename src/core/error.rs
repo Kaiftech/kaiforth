@@ -14,6 +14,7 @@ pub enum ForthErrorKind {
     InvalidWord,
     OptimizationFailed,
     ExecutionStateCorrupted,
+    SystemError { code: i32 },
     Exception,
     ReturnStackUnderflow,
     ReturnStackOverflow,

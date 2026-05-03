@@ -472,6 +472,7 @@ impl Vm {
         }
     }
 
+    #[allow(dead_code)]
     fn print_divergence(&self, svm: &Vm, sys: &System, isys: &System) {
         let mut report = String::new();
         let _ = writeln!(report, "\n\x1b[1;31m[CRITICAL] JIT/Interpreter Divergence Detected!\x1b[0m");

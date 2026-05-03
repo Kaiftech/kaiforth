@@ -49,7 +49,7 @@ fn test_jit_divergence_detection() {
 
 #[test]
 fn test_stack_hardening() {
-    let mut sys = System::new(1024 * 1024).unwrap();
+    let _sys = System::new(1024 * 1024).unwrap();
     // Test that pushing too much triggers a trap/error, not UB
     let mut vm = Vm::new().unwrap();
     for _ in 0..1025 {
