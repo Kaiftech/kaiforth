@@ -37,10 +37,12 @@ pub struct JitContext {
     pub loop_stack_limit_real: u64,   // (256)
 }
 
-#[cfg(windows)]
+#[cfg(all(target_arch = "x86_64", windows))]
 pub type JitFuncAbi = unsafe extern "win64" fn(*mut JitContext);
-#[cfg(not(windows))]
+#[cfg(all(target_arch = "x86_64", not(windows)))]
 pub type JitFuncAbi = unsafe extern "sysv64" fn(*mut JitContext);
+#[cfg(not(target_arch = "x86_64"))]
+pub type JitFuncAbi = unsafe extern "C" fn(*mut JitContext);
 
 impl JitContext {
     pub fn validate(&self) -> ForthResult<()> {

@@ -16,7 +16,7 @@ Kaiforth is a high-performance, hardware-hardened, and ANS Forth compliant Virtu
 
 ### Prerequisites
 - **Rust**: [Install Rust](https://rustup.rs/) (2021 Edition or later).
-- **Platform**: Currently supports Windows and Linux (x86_64).
+- **Platform**: Supports Windows, Linux, and macOS. Native JIT acceleration is currently optimized for x86_64; other architectures (like AArch64) automatically fallback to the high-performance interpreter core.
 
 ### Build and Install
 ```bash

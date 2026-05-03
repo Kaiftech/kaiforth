@@ -9,7 +9,7 @@ unsafe extern "system" {
     fn FlushInstructionCache(hprocess: isize, lpbaseaddress: *const std::ffi::c_void, dwsize: usize) -> i32;
 }
 #[cfg(not(windows))]
-use libc;
+// libc not needed currently
 
 pub struct JitBlock {
     pub func_ptr: *const u8,
@@ -23,10 +23,10 @@ pub struct JitBlock {
     _mmap: Mmap, 
 }
 
-fn flush_icache(ptr: *const u8, len: usize) {
+fn flush_icache(_ptr: *const u8, _len: usize) {
     #[cfg(windows)]
     unsafe {
-        let _ = FlushInstructionCache(GetCurrentProcess(), ptr as *const std::ffi::c_void, len);
+        let _ = FlushInstructionCache(GetCurrentProcess(), _ptr as *const std::ffi::c_void, _len);
     }
     #[cfg(all(not(windows), target_arch = "x86_64"))]
     {

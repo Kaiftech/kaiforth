@@ -76,7 +76,7 @@ impl OptimizerState {
     }
 
     pub fn should_run_optimizer(&mut self) -> bool {
-        if self.is_frozen { return false; }
+        if self.is_frozen || !cfg!(target_arch = "x86_64") { return false; }
         self.eval_count += 1;
         if self.eval_count >= self.next_opt_threshold {
             self.next_opt_threshold += (self.next_opt_threshold / 2).max(50);
