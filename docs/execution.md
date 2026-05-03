@@ -14,14 +14,21 @@ Kaiforth uses a three-tier execution strategy to balance cold-start latency and 
 
 ## Tier 3: JIT Super-Instructions
 - **Mechanism**: Optimized segments are compiled into raw x64 machine code with hardware-level protection.
-- **Fault Tolerance**: Explicit JIT Traps (1-8) map directly back to `ForthErrorKind` variants for precise debugging.
-- **Desync Prevention**: The dispatcher uses the stored `original_len` of the bytecode segment to skip the correct number of instructions after a JIT run.
+- **Transactional Safety**: Every JIT execution follows a **Commit or Rollback** lifecycle.
+    - **Step 1: Preparation**: Journal is initialized; Stack alignment and memory bounds are verified.
+    - **Step 2: Execution**: Native machine code runs; Writes are recorded in the shadow journal.
+    - **Step 3: Audit**: Rust post-handler verifies the `SemanticContract` using shadow signals from the journal.
+    - **Step 4: Recovery**: If any trap (1-10) or contract mismatch occurs, the VM performs an **Atomic Rollback** of all memory mutation using the journal and falls back to Tier 1.
+- **Desync Prevention**: The dispatcher uses the stored `original_len` to skip the bytecode segment after a successful JIT commit.
 
-## Trap Mapping
-- **1**: Stack Overflow
-- **2**: Stack Underflow
-- **3**: Magic Mismatch
-- **4**: Alignment Fault
+## Trap Mapping (Hardware-to-VM)
+Precise fault mapping allows for safe recovery and debugging:
+- **1**: Stack Overflow (Software Guard)
+- **2**: Stack Underflow (Software Guard)
+- **3**: Magic Signature Mismatch
+- **4**: ABI Stack Alignment Fault
 - **6**: Divide by Zero
-- **7**: Memory OOB
+- **7**: Memory OOB (Absolute Range Check)
 - **8**: Context NULL
+- **9**: Control-Flow OOB (Out-of-block Jump)
+- **10**: Transaction Journal Overflow (mid-flight exhaustion)

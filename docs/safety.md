@@ -1,23 +1,30 @@
-# Safety Model (Hardware-Enforced)
+# Safety Model (Zero-Trust & Transactional)
 
-Kaiforth uses hardware-level memory protection to guarantee execution safety with zero software overhead in the critical path.
+Kaiforth uses a multi-layered security architecture that combines hardware-level protection with **Shadow-Signal Transactional Auditing** to guarantee execution safety for untrusted code.
 
-## 1. Dual-Guard Hardware Stack
-The data stack is allocated as a 4-page memory region with the following layout:
-- **Page 0**: Leading Guard Page (`PROT_NONE` / `NOACCESS`)
-- **Page 1-2**: Data Region (1024 cells of 8-byte `i64`)
-- **Page 3**: Trailing Guard Page (`PROT_NONE` / `NOACCESS`)
+## 1. Hardware-Assisted Stack Protection
+The data stack is protected by both software and hardware guards:
+- **Leading/Trailing Guard Pages**: Memory-mapped pages with `PROT_NONE` surround the data region, catching illegal stack-pointer drift at the CPU level.
+- **Software Bounds Checks**: The JIT compiler emits proactive `r11` (depth register) validation before every `Push` operation, ensuring that overflows are caught gracefully (Trap 1) before hitting the guard page.
 
-### Behavior:
-- **Underflow**: Any attempt to pop from an empty stack (writing/reading before Page 1) triggers an immediate hardware `Segmentation Fault` or `Access Violation`.
-- **Overflow**: Any attempt to push beyond cell 1024 (writing into Page 3) triggers a hardware fault.
-- **JIT Optimization**: Because these boundaries are hardware-enforced, the JIT-ed machine code has **zero software bounds checks**, enabling native-speed stack operations.
+## 2. Transactional Memory & Shadow Journaling
+To achieve atomic execution safety, Kaiforth treats every JIT-optimized block as a **Transaction**.
+- **The Journal**: Before any `Op::Store` is committed to main memory, the JIT records the target offset and the **original value** in a stack-allocated journal.
+- **Shadow Detection**: The VM auditor (in Rust) uses the journal length as a "Shadow Signal" to detect memory writes. This makes it impossible for compromised JIT code to hide side effects or violate "Pure" block contracts.
+- **Atomic Rollback**: If a JIT block encounters a hardware trap, contract violation, or out-of-bounds jump, the VM performs a **reverse-replay** of the journal, restoring all mutated memory to its exact pre-execution state.
 
-## 2. Vectorized Memory Safety
-The JIT-ed `Fetch` and `Store` operations are optimized using **SIMD (SSE/AVX)** when contiguous access is detected.
-- **Alignment**: The system ensures that memory-mapped segments are aligned to at least 16-byte boundaries to support `MOVAPS`/`MOVUPS` vectorized instructions.
+## 3. W^X (Write XOR Execute) Protection
+- **Separation of Concerns**: JIT memory is never simultaneously writable and executable.
+- **Transition**: Code is generated in a `RW` buffer and then strictly transitioned to `RX` via hardware-enforced protection before the code is called.
 
-## 3. Zero-Trust Machine Code
-- **Trap 8 (Context NULL)**: Validates that the VM context is properly initialized.
-- **Trap 3 (Magic Signature)**: Confirms the presence of the `0x4B4149464F525448` header.
-- **Control Flow Integrity**: Jumps and branches within JIT blocks are re-calculated and patched during compilation to ensure they never escape the authorized machine code segment.
+## 4. ABI Hardening
+- **Alignment Verification**: The JIT entry point enforces a mandatory **16-byte stack alignment** and 8-byte memory alignment check. This prevents Undefined Behavior (UB) caused by misaligned SIMD or pointer operations.
+- **Null Safety**: All code pointers are validated for nullability before execution.
+
+## 5. Formal Trap Hierarchy
+JIT machine code communicates faults via an explicit trap system:
+- **Trap 1/2**: Stack Overflow/Underflow (Software Guard).
+- **Trap 7**: Absolute Memory Boundary Violation.
+- **Trap 9**: Control-Flow Boundary Violation (Jump OOB).
+- **Trap 10**: Transaction Journal Overflow (Capacity Exhaustion).
+- **Shadow Audit**: Contract Verification ensures semantic alignment (D-Stack and Loop-Stack depth) after every successful block exit.

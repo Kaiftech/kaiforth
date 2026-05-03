@@ -31,7 +31,7 @@ impl Parser {
                 |
                 (?P<word>\S+)
             )
-        "#).map_err(|e| ForthError::new(ForthErrorKind::ExecutionStateCorrupted(e.to_string()), ForthPhase::Parsing, "Regex Init Failure"))?;
+        "#).map_err(|_| ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Parsing))?;
         Ok(Self { input_stack: Vec::new(), base: 10, token_re: re })
     }
 
@@ -51,29 +51,37 @@ impl Parser {
 
     pub fn next_token(&mut self) -> ForthResult<Option<Token>> {
         loop {
-            let src = match self.input_stack.last_mut() {
-                Some(s) => s,
-                None => return Ok(None),
+            let (is_eof, _ptr, _text_len) = if let Some(src) = self.input_stack.last() {
+                (src.ptr >= src.text.len(), src.ptr, src.text.len())
+            } else {
+                return Ok(None);
             };
-            if src.ptr >= src.text.len() { return Ok(None); }
+
+            if is_eof {
+                self.input_stack.pop();
+                continue;
+            }
+
+            let src = self.input_stack.last_mut().unwrap();
             
             if let Some(caps) = self.token_re.captures(&src.text[src.ptr..]) {
-                let m = caps.get(0).ok_or_else(|| ForthError::new(ForthErrorKind::UnknownToken("Regex mismatch".into()), ForthPhase::Parsing, "Internal Parser Error"))?;
+                let m = caps.get(0).ok_or_else(|| ForthError::new(ForthErrorKind::UnknownToken, ForthPhase::Parsing))?;
                 src.ptr += m.end();
+                
                 if let Some(w) = caps.name("word") { return Ok(Some(Token::Word(w.as_str().to_string()))); }
                 if let Some(i) = caps.name("int") { 
                     let v = i64::from_str_radix(i.as_str(), self.base as u32)
-                        .map_err(|e| ForthError::new(ForthErrorKind::UnknownToken(format!("Invalid integer: {}", e)), ForthPhase::Parsing, "Integer Parse Failure"))?;
+                        .map_err(|_| ForthError::new(ForthErrorKind::UnknownToken, ForthPhase::Parsing))?;
                     return Ok(Some(Token::Number(v))); 
                 }
                 if let Some(f) = caps.name("num") { 
                     let v = f.as_str().parse::<f64>()
-                        .map_err(|e| ForthError::new(ForthErrorKind::UnknownToken(format!("Invalid float: {}", e)), ForthPhase::Parsing, "Float Parse Failure"))?;
+                        .map_err(|_| ForthError::new(ForthErrorKind::UnknownToken, ForthPhase::Parsing))?;
                     return Ok(Some(Token::Float(v))); 
                 }
                 if let Some(h) = caps.name("hex") { 
                     let v = i64::from_str_radix(&h.as_str()[2..], 16)
-                        .map_err(|e| ForthError::new(ForthErrorKind::UnknownToken(format!("Invalid hex: {}", e)), ForthPhase::Parsing, "Hex Parse Failure"))?;
+                        .map_err(|_| ForthError::new(ForthErrorKind::UnknownToken, ForthPhase::Parsing))?;
                     return Ok(Some(Token::Number(v))); 
                 }
                 if let Some(s) = caps.name("str") { return Ok(Some(Token::StringLiteral(s.as_str().to_string()))); }

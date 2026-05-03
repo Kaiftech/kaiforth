@@ -1,75 +1,32 @@
-mod core {
-    pub mod error;
-    pub mod types;
-}
-mod vm {
-    pub mod state;
-    pub mod memory;
-    pub mod stack;
-    pub mod execution;
-}
-mod compiler {
-    pub mod parser;
-}
-mod optimizer {
-    pub mod contract;
-    pub mod segmentation;
-    pub mod analysis;
-}
-mod jit {
-    pub mod abi;
-    pub mod runtime;
-}
-mod system {
-    pub mod system;
-}
-
-use crate::core::error::ForthResult;
-use crate::core::types::ExecutionStatus;
-use crate::vm::state::Vm;
-use crate::system::system::System;
-use crate::compiler::parser::Parser;
-
-#[inline(always)]
-pub fn read_cycle_counter() -> u64 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    { unsafe { std::arch::x86_64::_rdtsc() } }
-    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-    { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("Clock fail").as_nanos() as u64 }
-}
-
-impl Vm {
-    pub fn run_loop(&mut self, sys: &mut System) -> ForthResult<()> {
-        loop {
-            match self.step_ex(sys) {
-                Ok(ExecutionStatus::Done) => continue,
-                Ok(ExecutionStatus::Stop) => break,
-                Ok(ExecutionStatus::Yielded) => break,
-                Ok(ExecutionStatus::Thrown(code)) => {
-                    self.unwind_to_handler(code)?;
-                }
-                Err(e) => {
-                    // Critical VM Error: Try to unwind or abort
-                    if let Ok(_) = self.unwind_to_handler(-1) {
-                        println!("Critical error trapped: {}", e.message);
-                    } else {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-}
+use kaiforth::core::error::ForthResult;
+use kaiforth::vm::state::Vm;
+use kaiforth::system::system::System;
+use kaiforth::compiler::parser::Parser;
+use kaiforth::read_cycle_counter;
 
 fn main() -> ForthResult<()> {
     println!("Kaiforth VM - Production Hardened Core");
-    let mut sys = System::new()?;
+    let mut sys = System::new(1024 * 1024)?;
+    sys.register_core(); // Populate dictionary
+    
     let mut vm = Vm::new()?;
-    let mut _parser = Parser::try_new()?;
+    let mut parser = Parser::try_new()?;
     
-    // Minimal demonstration
-    vm.run_loop(&mut sys)?;
+    // Add stdin as source
+    use kaiforth::compiler::parser::InputSource;
+    use std::io::{self, Read};
     
+    let mut buffer = String::new();
+    println!("Type Forth code (Ctrl+D to finish):");
+    io::stdin().read_to_string(&mut buffer).map_err(|_| kaiforth::core::error::ForthError::new(kaiforth::core::error::ForthErrorKind::ExecutionStateCorrupted, kaiforth::core::error::ForthPhase::Parsing))?;
+    
+    parser.input_stack.push(InputSource { text: buffer, ptr: 0 });
+    
+    let start = read_cycle_counter()?;
+    vm.interpret_loop(&mut sys, &mut parser)?;
+    vm.run_loop(&mut sys)?; // Run any remaining compiled code
+    let end = read_cycle_counter()?;
+    
+    println!("Execution finished in {} cycles.", end.wrapping_sub(start));
     Ok(())
 }

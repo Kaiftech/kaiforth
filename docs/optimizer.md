@@ -10,7 +10,8 @@ Unlike simple pattern matching, the Kaiforth optimizer uses a **Segmentation Eng
 ## 2. Adaptive Learning
 Patterns are tracked in a `HashMap` of `PatternStats`.
 - **Promotion**: A pattern is promoted to `super_instructions` once its success score exceeds the threshold.
-- **Decay**: Unused or unstable patterns are slowly purged from the state to maintain a high signal-to-noise ratio in the JIT cache.
+- **Contract Verification**: Every promoted sequence undergoes a **branch-aware** static analysis that proves the stack effect is identical across all possible jump/branch permutations within the segment.
+- **Decay**: Unused or unstable patterns are slowly purged from the state.
 
 ## 3. Tiered JIT Dispatch
 The VM uses the `ip` to look up optimized blocks in O(1) time.

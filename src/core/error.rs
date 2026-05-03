@@ -1,30 +1,39 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ForthErrorKind {
-    StackUnderflow { exp: usize, found: usize },
+    StackUnderflow,
     StackOverflow,
-    InvalidOpcode(u8),
-    UnknownToken(String),
-    WordNotFound(String),
+    InvalidOpcode,
+    UnknownToken,
+    WordNotFound,
     DivideByZero,
     MemoryOOB { addr: usize, limit: usize },
-    FileError { context: String, source: String },
-    Abort(String),
-    OptimizationFailed(String),
-    ExecutionStateCorrupted(String),
-    Exception(i64),
+    FileError,
+    Abort,
+    InvalidWord,
+    OptimizationFailed,
+    ExecutionStateCorrupted,
+    Exception,
+    ReturnStackUnderflow,
+    ReturnStackOverflow,
     // JIT Traps
     JitTrapOverflow,
     JitTrapUnderflow,
-    JitTrapMemory,
+    JitTrapMemory { addr: u64, limit: u64 },
     JitTrapMagic,
     JitTrapAlignment,
     JitTrapDivZero,
     JitTrapContextNull,
+    JitTrapJournalOverflow,
+    JitTrapDifferentialFailure,
+    JitTrapJumpOOB { target: u64 },
+    JumpOutOfBounds { target: usize },
+    LoopStackOverflow,
+    AlignmentError { addr: usize, required: usize },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ForthPhase {
     Parsing,
     Compilation,
@@ -33,17 +42,35 @@ pub enum ForthPhase {
     Initialization,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ForthError {
     pub kind: ForthErrorKind,
     pub phase: ForthPhase,
-    pub message: String,
 }
 
 impl ForthError {
-    pub fn new<S: Into<String>>(kind: ForthErrorKind, phase: ForthPhase, message: S) -> Self {
-        Self { kind, phase, message: message.into() }
+    #[inline]
+    pub const fn new(kind: ForthErrorKind, phase: ForthPhase) -> Self {
+        Self { kind, phase }
     }
 }
+
+impl std::fmt::Display for ForthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            ForthErrorKind::MemoryOOB { addr, limit } => 
+                write!(f, "Memory OOB: addr {} >= limit {} during {:?}", addr, limit, self.phase),
+            ForthErrorKind::JitTrapMemory { addr, limit } =>
+                write!(f, "JIT Memory Trap: addr {} >= limit {} during {:?}", addr, limit, self.phase),
+            ForthErrorKind::JitTrapJumpOOB { target } =>
+                write!(f, "JIT Jump OOB: target {} during {:?}", target, self.phase),
+            ForthErrorKind::AlignmentError { addr, required } =>
+                write!(f, "Alignment Error: addr {} must be {}-byte aligned during {:?}", addr, required, self.phase),
+            _ => write!(f, "{:?} during {:?}", self.kind, self.phase),
+        }
+    }
+}
+
+impl std::error::Error for ForthError {}
 
 pub type ForthResult<T> = Result<T, ForthError>;
