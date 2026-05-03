@@ -13,7 +13,6 @@ pub struct CatchFrame {
     pub in_tr: bool,
 }
 
-pub const D_STACK_START_OFFSET: usize = 4096;
 pub const D_STACK_SIZE: usize = 1024 * 8;
 pub const CANARY_VALUE: u64 = 0xDEADBEEFCAFEBABE;
 
@@ -46,7 +45,7 @@ pub struct Vm {
 
 impl Vm {
     pub fn new() -> ForthResult<Self> {
-        let page_size = 4096;
+        let page_size = Self::get_page_size();
         let stack_size = D_STACK_SIZE; 
         let total_size = stack_size + (page_size * 2);
 
@@ -86,10 +85,10 @@ impl Vm {
         {
             unsafe {
                 if libc::mprotect(mmap.as_ptr() as *mut _, page_size, libc::PROT_NONE) != 0 {
-                    return Err(ForthError::new(ForthErrorKind::SystemError { code: -1 }, ForthPhase::Initialization));
+                    return Err(ForthError::new(ForthErrorKind::SystemError { code: std::io::Error::last_os_error().raw_os_error().unwrap_or(-1) }, ForthPhase::Initialization));
                 }
                 if libc::mprotect(mmap.as_ptr().add(stack_size + page_size) as *mut _, page_size, libc::PROT_NONE) != 0 {
-                    return Err(ForthError::new(ForthErrorKind::SystemError { code: -1 }, ForthPhase::Initialization));
+                    return Err(ForthError::new(ForthErrorKind::SystemError { code: std::io::Error::last_os_error().raw_os_error().unwrap_or(-1) }, ForthPhase::Initialization));
                 }
             }
         }
@@ -101,23 +100,59 @@ impl Vm {
         })
     }
 
+    fn get_page_size() -> usize {
+        #[cfg(windows)]
+        {
+            unsafe {
+                #[repr(C)]
+                #[allow(non_snake_case)]
+                struct SYSTEM_INFO {
+                    wProcessorArchitecture: u16,
+                    wReserved: u16,
+                    dwPageSize: u32,
+                    lpMinimumApplicationAddress: *mut std::ffi::c_void,
+                    lpMaximumApplicationAddress: *mut std::ffi::c_void,
+                    dwActiveProcessorMask: usize,
+                    dwNumberOfProcessors: u32,
+                    dwProcessorType: u32,
+                    dwAllocationGranularity: u32,
+                    wProcessorLevel: u16,
+                    wProcessorRevision: u16,
+                }
+                unsafe extern "system" {
+                    fn GetSystemInfo(lpSystemInfo: *mut SYSTEM_INFO);
+                }
+                let mut si: SYSTEM_INFO = std::mem::zeroed();
+                GetSystemInfo(&mut si);
+                si.dwPageSize as usize
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize }
+        }
+    }
+
     pub fn d_stack_ptr(&self) -> *mut i64 {
-        // Skip the first 8 bytes (bottom canary)
-        unsafe { self.d_stack.as_ptr().add(D_STACK_START_OFFSET + 8) as *mut i64 }
+        let page_size = Self::get_page_size();
+        // Skip the first page (guard) and the 8 bytes (bottom canary)
+        unsafe { self.d_stack.as_ptr().add(page_size + 8) as *mut i64 }
     }
 
     pub fn verify_canaries(&self) -> ForthResult<()> {
+        let page_size = Self::get_page_size();
+        let stack_size = D_STACK_SIZE;
         unsafe {
-            let base = self.d_stack.as_ptr().add(D_STACK_START_OFFSET) as *const u64;
+            let base = self.d_stack.as_ptr().add(page_size) as *const u64;
             if *base != CANARY_VALUE { return Err(ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Execution)); }
-            let top = self.d_stack.as_ptr().add(D_STACK_START_OFFSET + D_STACK_SIZE - 8) as *const u64;
+            let top = self.d_stack.as_ptr().add(page_size + stack_size - 8) as *const u64;
             if *top != CANARY_VALUE { return Err(ForthError::new(ForthErrorKind::ExecutionStateCorrupted, ForthPhase::Execution)); }
         }
         Ok(())
     }
 
     pub fn try_clone(&self) -> ForthResult<Self> {
-        let page_size = 4096;
+        let page_size = Self::get_page_size();
         let stack_size = D_STACK_SIZE;
         let total_size = stack_size + (page_size * 2);
 
