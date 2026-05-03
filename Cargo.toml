@@ -3,7 +3,7 @@ name = "kaiforth"
 version = "6.0.0"
 edition = "2024"
 description = "High-performance Forth VM in safe Rust — packed opcodes, recursive optimizer, zero panics"
-license = "MIT"
+license = "Apache-2.0"
 readme = "README.md"
 
 [[bin]]

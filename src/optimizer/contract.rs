@@ -181,3 +181,4 @@ pub fn validate_sequence_contract(seq: &[(Op, u64)]) -> Option<(SemanticContract
 
     Some((contract, folded_seq))
 }
+

@@ -73,3 +73,4 @@ fn finalize_segment(ops: Vec<(Op, u64)>, _min_d: i64, _max_d: i64, _final_d: i64
         None
     }
 }
+

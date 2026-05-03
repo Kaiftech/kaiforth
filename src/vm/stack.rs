@@ -61,3 +61,4 @@ impl Vm {
         self.f_stack.pop().ok_or_else(|| ForthError::new(ForthErrorKind::StackUnderflow, ForthPhase::Execution))
     }
 }
+

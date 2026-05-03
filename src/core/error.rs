@@ -74,3 +74,4 @@ impl std::fmt::Display for ForthError {
 impl std::error::Error for ForthError {}
 
 pub type ForthResult<T> = Result<T, ForthError>;
+

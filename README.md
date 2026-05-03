@@ -114,4 +114,4 @@ Tune the VM behavior via environment variables or CLI flags:
 ---
 
 ## 📜 License
-Licensed under the MIT License. See [LICENSE](LICENSE) for details.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
