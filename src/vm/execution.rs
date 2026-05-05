@@ -515,31 +515,34 @@ impl Vm {
     }
 
 
-    pub fn execute_word(&mut self, idx: usize, sys: &mut System) -> ForthResult<()> {
+    pub fn execute_word(&mut self, idx: usize, sys: &mut System) -> ForthResult<ExecutionStatus> {
         let entry = &sys.dict[idx];
         match entry.kind {
             crate::system::system::WordKind::Primitive(op_idx) => {
                 let op = Op::from_u8(op_idx as u8).unwrap();
-                self.execute_op(op, 0, sys)?;
+                self.execute_op(op, 0, sys)
             }
             crate::system::system::WordKind::Defined(addr) => {
                 let old_ip = self.ip;
                 let old_c_depth = self.c_stack.len();
                 self.ip = addr;
+                let mut last_status = ExecutionStatus::Done;
                 loop {
                     match self.step_ex(sys)? {
                         ExecutionStatus::Done => {
                             if self.c_stack.len() < old_c_depth { break; }
                         }
-                        ExecutionStatus::Stop => break,
-                        _ => {}
+                        status => {
+                            last_status = status;
+                            break;
+                        }
                     }
                 }
                 self.ip = old_ip;
+                Ok(last_status)
             }
-            _ => {}
+            _ => Ok(ExecutionStatus::Done),
         }
-        Ok(())
     }
 }
 

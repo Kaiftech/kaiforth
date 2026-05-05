@@ -93,7 +93,7 @@ impl Vm {
     /// 
     /// # Errors
     /// Returns `ForthError` on syntax errors, unknown words, or compilation failures.
-    pub fn interpret_loop(&mut self, sys: &mut System, parser: &mut Parser) -> ForthResult<()> {
+    pub fn interpret_loop(&mut self, sys: &mut System, parser: &mut Parser) -> ForthResult<ExecutionStatus> {
         while let Some(token) = parser.next_token()? {
             match token {
                 Token::Word(name) => {
@@ -240,7 +240,7 @@ impl Vm {
                         sys.code.push(Op::PLoop, delta as u64);
                         continue;
                     }
-
+    
                     if let Some(idx) = sys.dict.lookup(&name) {
                         let entry = &sys.dict[idx];
                         if sys.compiling && !entry.is_immediate {
@@ -255,7 +255,8 @@ impl Vm {
                             }
                         } else {
                             // Interpretation mode or Immediate word
-                            self.execute_word(idx, sys)?;
+                            let status = self.execute_word(idx, sys)?;
+                            if status != ExecutionStatus::Done { return Ok(status); }
                         }
                     } else {
                         // Try parsing as number if not found in dict
@@ -279,7 +280,7 @@ impl Vm {
                 _ => {}
             }
         }
-        Ok(())
+        Ok(ExecutionStatus::Done)
     }
 
     fn handle_literal(&mut self, val: i64, sys: &mut System) -> ForthResult<()> {

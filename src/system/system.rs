@@ -214,7 +214,7 @@ impl System {
             ("here", Op::Here), ("allot", Op::Allot), (",", Op::Comma), ("compile,", Op::CompileComma),
             ("i", Op::I), ("j", Op::J), ("bl", Op::BL),
             (".", Op::Dot), ("emit", Op::Emit), ("cr", Op::Cr), ("yield", Op::Yield),
-            ("catch", Op::Catch), ("throw", Op::Throw), ("stop", Op::Stop),
+            ("catch", Op::Catch), ("throw", Op::Throw), ("stop", Op::Stop), ("bye", Op::Stop),
         ];
         for (name, op) in ops {
             self.dict.insert(name.to_string(), WordKind::Primitive(op as usize));

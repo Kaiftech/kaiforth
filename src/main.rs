@@ -18,32 +18,68 @@ use kaiforth::core::error::ForthResult;
 use kaiforth::vm::state::Vm;
 use kaiforth::system::system::System;
 use kaiforth::compiler::parser::Parser;
-use kaiforth::read_cycle_counter;
+use kaiforth::core::types::ExecutionStatus;
 
 fn main() -> ForthResult<()> {
-    println!("Kaiforth VM - Production Hardened Core");
+    let args: Vec<String> = std::env::args().collect();
+    
     let mut sys = System::new(1024 * 1024)?;
-    sys.register_core(); // Populate dictionary
+    sys.register_core(); 
     
     let mut vm = Vm::new()?;
     let mut parser = Parser::try_new()?;
     
-    // Add stdin as source
     use kaiforth::compiler::parser::InputSource;
-    use std::io::{self, Read};
+    use std::io::{self, Write, Read};
+
+    if args.len() > 1 {
+        // Run from file
+        let path = &args[1];
+        let mut file = std::fs::File::open(path).map_err(|_| kaiforth::core::error::ForthError::new(kaiforth::core::error::ForthErrorKind::ExecutionStateCorrupted, kaiforth::core::error::ForthPhase::Parsing))?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).map_err(|_| kaiforth::core::error::ForthError::new(kaiforth::core::error::ForthErrorKind::ExecutionStateCorrupted, kaiforth::core::error::ForthPhase::Parsing))?;
+        
+        parser.input_stack.push(InputSource { text: contents, ptr: 0 });
+        vm.interpret_loop(&mut sys, &mut parser)?;
+        vm.run_loop(&mut sys)?;
+    } else {
+        // Interactive REPL
+        println!("Kaiforth VM - Production Hardened Core");
+        println!("Interactive Mode. Type 'bye' or press Ctrl+D to exit.");
+        
+        loop {
+            if sys.compiling {
+                print!("  compiling> ");
+            } else {
+                print!("ok> ");
+            }
+            io::stdout().flush().unwrap();
+            
+            let mut line = String::new();
+            let bytes_read = io::stdin().read_line(&mut line).map_err(|_| kaiforth::core::error::ForthError::new(kaiforth::core::error::ForthErrorKind::ExecutionStateCorrupted, kaiforth::core::error::ForthPhase::Parsing))?;
+            
+            // EOF or manual Ctrl+D
+            if bytes_read == 0 || line.contains('\x04') {
+                println!();
+                break;
+            }
+            
+            parser.input_stack.push(InputSource { text: line, ptr: 0 });
+            
+            match vm.interpret_loop(&mut sys, &mut parser) {
+                Ok(ExecutionStatus::Stop) => break,
+                Ok(_) => {
+                    if let Err(e) = vm.run_loop(&mut sys) {
+                        eprintln!("\nExecution Error: {:?}", e.kind);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("\nError: {:?}", e.kind);
+                }
+            }
+        }
+    }
     
-    let mut buffer = String::new();
-    println!("Type Forth code (Ctrl+D to finish):");
-    io::stdin().read_to_string(&mut buffer).map_err(|_| kaiforth::core::error::ForthError::new(kaiforth::core::error::ForthErrorKind::ExecutionStateCorrupted, kaiforth::core::error::ForthPhase::Parsing))?;
-    
-    parser.input_stack.push(InputSource { text: buffer, ptr: 0 });
-    
-    let start = read_cycle_counter()?;
-    vm.interpret_loop(&mut sys, &mut parser)?;
-    vm.run_loop(&mut sys)?; // Run any remaining compiled code
-    let end = read_cycle_counter()?;
-    
-    println!("Execution finished in {} cycles.", end.wrapping_sub(start));
     Ok(())
 }
 
